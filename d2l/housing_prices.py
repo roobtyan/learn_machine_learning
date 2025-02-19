@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 from torch import nn
 from d2l import torch as d2l
+from matplotlib import pyplot as plt
 
 DATA_HUB = dict()
 DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
@@ -69,7 +70,10 @@ def train(net, train_features, train_labels, test_features, test_labels,
           num_epochs, learning_rate, weight_decay, batch_size):
     train_ls, test_ls = [], []
     train_iter = d2l.load_array((train_features, train_labels), batch_size)
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    # 这里使用的是Adam优化算法
+    optimizer = torch.optim.Adam(net.parameters(),
+                                 lr = learning_rate,
+                                 weight_decay = weight_decay)
     for epoch in range(num_epochs):
         for X, y in train_iter:
             optimizer.zero_grad()
@@ -77,7 +81,7 @@ def train(net, train_features, train_labels, test_features, test_labels,
             l.backward()
             optimizer.step()
         train_ls.append(log_rmse(net, train_features, train_labels))
-        if test_ls is not None:
+        if test_labels is not None:
             test_ls.append(log_rmse(net, test_features, test_labels))
     return train_ls, test_ls
 
@@ -118,6 +122,25 @@ def k_fold(k, X_train, y_train, num_epochs, learning_rate, weight_decay,
     return train_l_sum / k, valid_l_sum / k
 
 
+def train_and_pred(train_features, test_features, train_labels, test_data,
+                   num_epochs, lr, weight_decay, batch_size):
+    net = get_net()
+    train_ls, _ = train(net, train_features, train_labels, None, None,
+                        num_epochs, lr, weight_decay, batch_size)
+    train_ls_np = [t.detach().numpy() for t in train_ls]
+    d2l.plot(np.arange(1, num_epochs + 1), [train_ls_np], xlabel='epoch',
+             ylabel='log rmse', xlim=[1, num_epochs], yscale='log')
+    #显示图像
+    plt.show()
+    print(f'训练log rmse：{float(train_ls[-1]):f}')
+    # 将网络应用于测试集。
+    preds = net(test_features).detach().numpy()
+    # 将其重新格式化以导出到Kaggle
+    test_data['SalePrice'] = pd.Series(preds.reshape(1, -1)[0])
+    submission = pd.concat([test_data['Id'], test_data['SalePrice']], axis=1)
+    submission.to_csv('submission.csv', index=False)
+
+
 if __name__ == '__main__':
     DATA_HUB['kaggle_house_train'] = (  # @save
         DATA_URL + 'kaggle_house_pred_train.csv',
@@ -156,8 +179,14 @@ if __name__ == '__main__':
     loss = nn.MSELoss()
     in_features = train_features.shape[1]
 
-    k, num_epochs, lr, weight_decay, batch_size = 5, 100, 5, 0, 64
-    train_l, valid_l = k_fold(k, train_features, train_labels, num_epochs, lr,
-                              weight_decay, batch_size)
-    print(f'{k}-折验证: 平均训练log rmse: {float(train_l):f}, '
-          f'平均验证log rmse: {float(valid_l):f}')
+    k, num_epochs, lr, weight_decay, batch_size = 5, 100, 7, 0.01, 64
+    # weight_decay_candidates = [0.01, 0.1, 0.5, 1]
+    # lr_candidates = [0.1, 0.03, 0.01, 0.003, 0.001]
+    # for weight_decay_candidate in weight_decay_candidates:
+    #     print("weight_decay_candidate:", weight_decay_candidate)
+    #     train_l, valid_l = k_fold(k, train_features, train_labels, num_epochs, lr,
+    #                               weight_decay_candidate, batch_size)
+    #     print(f'{k}-折验证: 平均训练log rmse: {float(train_l):f}, '
+    #           f'平均验证log rmse: {float(valid_l):f}')
+    train_and_pred(train_features, test_features, train_labels, test_data,
+                   num_epochs, lr, weight_decay, batch_size)
