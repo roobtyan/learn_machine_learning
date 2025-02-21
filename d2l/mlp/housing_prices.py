@@ -15,7 +15,7 @@ DATA_HUB = dict()
 DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
 
 
-def download(name, cache_dir=os.path.join(".", "data")):
+def download(name, cache_dir=os.path.join("..", "data")):
     assert name in DATA_HUB, f"{name} not in {DATA_HUB}"
     url, sha1_hash = DATA_HUB[name]
     os.makedirs(cache_dir, exist_ok=True)
