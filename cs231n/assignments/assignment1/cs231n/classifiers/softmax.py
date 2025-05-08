@@ -39,10 +39,12 @@ def softmax_loss_naive(W, X, y, reg):
         logp = np.log(p)
 
         loss -= logp[y[i]]  # negative log probability is the loss
-
+        for j in range(num_classes):
+            dW[:, j] += (p[j] - (j == y[i])) * X[i]  # gradient of the loss
 
     # normalized hinge loss plus regularization
     loss = loss / num_train + reg * np.sum(W * W)
+    dW = dW / num_train + 2 * reg * W  # gradient of the loss
 
     #############################################################################
     # TODO:                                                                     #
@@ -66,14 +68,21 @@ def softmax_loss_vectorized(W, X, y, reg):
     # Initialize the loss and gradient to zero.
     loss = 0.0
     dW = np.zeros_like(W)
-
-
+    
     #############################################################################
     # TODO:                                                                     #
     # Implement a vectorized version of the softmax loss, storing the           #
     # result in loss.                                                           #
     #############################################################################
-
+    scores = X.dot(W)  # shape (N, C)
+    num_train = X.shape[0]
+    scores -= np.max(scores, axis=1, keepdims=True)  # for numerical stability
+    p = np.exp(scores)  # shape (N, C)
+    p /= p.sum(axis=1, keepdims=True)  # normalize
+    logp = np.log(p)  # shape (N, C)
+    loss -= np.sum(logp[np.arange(num_train), y])  # negative log probability is the loss
+    loss /= num_train  # average over the batch
+    loss += reg * np.sum(W * W)  # regularization term
 
     #############################################################################
     # TODO:                                                                     #
@@ -84,6 +93,9 @@ def softmax_loss_vectorized(W, X, y, reg):
     # to reuse some of the intermediate values that you used to compute the     #
     # loss.                                                                     #
     #############################################################################
-
+    dscores = p.copy()  # shape (N, C)
+    dscores[np.arange(num_train), y] -= 1  # gradient of the loss
+    dW = X.T.dot(dscores)  # shape (D, C)
+    dW /= num_train  # average over the batch
 
     return loss, dW
